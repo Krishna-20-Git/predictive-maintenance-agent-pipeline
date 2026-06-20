@@ -10,6 +10,9 @@ __pycache__/
 venv/
 *.ipynb_checkpoints/
 
+# Notebook diagnostic plots (regenerated on each run)
+notebooks/output_*.png
+
 # Model artifacts (large binaries — keep repo light)
 artifacts/*.joblib
 artifacts/*.json
