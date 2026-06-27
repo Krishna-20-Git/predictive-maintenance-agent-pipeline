@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: orchestrator
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:mlops_pipeline}
+    username: ${POSTGRES_USER:mlops}
+    password: ${POSTGRES_PASSWORD:changeme_local_dev}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    # validate (not create/update) in normal operation — schema changes should
+    # be deliberate, not auto-guessed by Hibernate. We use ddl-auto=create
+    # ONCE manually to bootstrap the schema (see Day 8 instructions), then
+    # switch back to validate.
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
