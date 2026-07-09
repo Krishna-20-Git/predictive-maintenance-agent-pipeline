@@ -1,0 +1,40 @@
+IMPORTANT — Spring Boot does NOT read .env files automatically.
+
+Unlike Python's python-dotenv, Spring Boot has no built-in .env support.
+The ${UPSTASH_REDIS_HOST} placeholders in application.yml only resolve
+from real OS/JVM environment variables — your .env file at the repo root
+is invisible to Java unless you explicitly load it.
+
+EASIEST FIX (recommended): set environment variables in IntelliJ's Run
+Configuration, so they're available every time you run the app from
+IntelliJ.
+
+Steps:
+1. In IntelliJ, click the Run Configuration dropdown (top toolbar, next to
+   the green ▶ Run button) → "Edit Configurations..."
+2. Select your "OrchestratorApplication" configuration on the left
+3. Find the "Environment variables" field (you may need to click "Modify
+   options" → "Environment variables" to reveal it if it's hidden)
+4. Click the folder icon to open the editor, and add these three:
+
+     UPSTASH_REDIS_HOST=<your actual host, e.g. worthy-poodle-86925.upstash.io>
+     UPSTASH_REDIS_PORT=6379
+     UPSTASH_REDIS_PASSWORD=<your actual password>
+
+   (Copy the real values from your .env file at the repo root — same
+   values populate_features.py and the other Python scripts already use.)
+
+5. Click OK, then OK again to save the run configuration
+6. Run OrchestratorApplication as normal — it will now pick these up
+
+ALTERNATIVE (if you prefer not to duplicate secrets into IntelliJ's
+config): you could add the `spring-dotenv` library as a dependency, which
+auto-loads .env into Spring's environment. Not done by default here to
+keep the dependency list minimal and avoid introducing a third-party
+config-loading library for something IntelliJ's UI already solves cleanly.
+If you'd rather go this route later, let me know and I'll wire it up.
+
+WARNING: never type your real password into any file that gets committed
+to git. IntelliJ's run configurations are stored in
+.idea/runConfigurations/ or workspace.xml, which should already be
+gitignored — double check before committing.

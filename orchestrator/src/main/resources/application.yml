@@ -29,3 +29,13 @@ management:
     web:
       exposure:
         include: health,info
+
+upstash:
+  redis:
+    host: ${UPSTASH_REDIS_HOST}
+    port: ${UPSTASH_REDIS_PORT:6379}
+    password: ${UPSTASH_REDIS_PASSWORD}
+
+app:
+  alert-consumer:
+    enabled: true

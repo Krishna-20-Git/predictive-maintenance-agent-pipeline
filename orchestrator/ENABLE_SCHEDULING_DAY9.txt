@@ -1,0 +1,45 @@
+Day 9 requires ONE change to your existing OrchestratorApplication.java:
+
+Add the @EnableScheduling annotation, so Spring actually runs the
+@Scheduled method in StreamConsumerService. Without this, the scheduled
+method silently never fires — no error, it just never runs.
+
+BEFORE:
+----------------------------------------
+package com.krishna.orchestrator;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class OrchestratorApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(OrchestratorApplication.class, args);
+    }
+
+}
+----------------------------------------
+
+AFTER:
+----------------------------------------
+package com.krishna.orchestrator;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
+
+@SpringBootApplication
+@EnableScheduling
+public class OrchestratorApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(OrchestratorApplication.class, args);
+    }
+
+}
+----------------------------------------
+
+Just two lines added: the import, and the @EnableScheduling annotation
+directly above the class declaration. Everything else in your existing
+file stays exactly as-is.

@@ -1,0 +1,12 @@
+Add this inside the <dependencies> block of orchestrator/pom.xml,
+anywhere among the other <dependency> entries:
+
+        <dependency>
+            <groupId>redis.clients</groupId>
+            <artifactId>jedis</artifactId>
+            <version>7.1.0</version>
+        </dependency>
+
+After adding it, in IntelliJ: right-click pom.xml → Maven → Reload Project
+(or click the little "m" refresh icon that appears in the top-right corner
+of the editor when pom.xml has unsaved/unsynced changes).
