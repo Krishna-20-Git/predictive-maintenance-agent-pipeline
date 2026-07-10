@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WebSocket Test — Alert Feed</title>
+    <style>
+        body { font-family: monospace; background: #111; color: #0f0; padding: 20px; }
+        h2 { color: #fff; }
+        #status { margin-bottom: 16px; font-size: 14px; }
+        #status.connected { color: #0f0; }
+        #status.disconnected { color: #f44; }
+        #alerts { max-height: 80vh; overflow-y: auto; }
+        .alert-row {
+            border: 1px solid #333;
+            margin-bottom: 8px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        .alert-row.high { border-color: #f44; background: #1a0000; }
+        .alert-row.low  { border-color: #f90; background: #1a0f00; }
+    </style>
+</head>
+<body>
+    <h2>🔴 Live Alert Feed — WebSocket Test</h2>
+    <div id="status" class="disconnected">● Disconnected</div>
+    <div id="alerts"></div>
+
+    <!-- SockJS + STOMP from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+
+    <script>
+        const statusEl = document.getElementById('status');
+        const alertsEl = document.getElementById('alerts');
+
+        function connect() {
+            const socket = new SockJS('http://localhost:8080/ws');
+            const client = Stomp.over(socket);
+
+            // Suppress STOMP debug output from the console
+            client.debug = null;
+
+            client.connect({}, function () {
+                statusEl.textContent = '● Connected to ws://localhost:8080/ws';
+                statusEl.className = 'connected';
+
+                client.subscribe('/topic/alerts', function (message) {
+                    const alert = JSON.parse(message.body);
+                    renderAlert(alert);
+                });
+
+                client.subscribe('/topic/drift', function (message) {
+                    console.log('Drift update:', JSON.parse(message.body));
+                });
+
+            }, function (error) {
+                statusEl.textContent = '● Disconnected — retrying in 3s...';
+                statusEl.className = 'disconnected';
+                setTimeout(connect, 3000);
+            });
+        }
+
+        function renderAlert(alert) {
+            const isHigh = alert.failureProbability >= 0.8;
+            const div = document.createElement('div');
+            div.className = 'alert-row ' + (isHigh ? 'high' : 'low');
+            div.innerHTML = `
+                <strong>Machine ${alert.machineId}</strong>
+                &nbsp;|&nbsp; prob: <strong>${(alert.failureProbability * 100).toFixed(1)}%</strong>
+                &nbsp;|&nbsp; ${alert.failureSoon ? '🔴 FAILURE SOON' : '🟡 warning'}
+                &nbsp;|&nbsp; cycle: ${alert.cyclePosition ?? 'n/a'}
+                &nbsp;|&nbsp; <span style="color:#666">${new Date(alert.receivedAt).toLocaleTimeString()}</span>
+            `;
+            alertsEl.prepend(div);
+
+            // Keep at most 100 rows visible
+            while (alertsEl.children.length > 100) {
+                alertsEl.removeChild(alertsEl.lastChild);
+            }
+        }
+
+        connect();
+    </script>
+</body>
+</html>

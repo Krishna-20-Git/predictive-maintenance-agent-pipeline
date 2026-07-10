@@ -1,10 +1,12 @@
 package com.krishna.orchestrator.service;
 
+import com.krishna.orchestrator.dto.AlertEvent;
 import com.krishna.orchestrator.entity.Alert;
 import com.krishna.orchestrator.repository.AlertRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import redis.clients.jedis.JedisPooled;
@@ -12,39 +14,38 @@ import redis.clients.jedis.StreamEntryID;
 import redis.clients.jedis.params.XReadGroupParams;
 import redis.clients.jedis.resps.StreamEntry;
 
-import java.util.AbstractMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Day 9 — consumes stream:scored-alerts and persists each alert into Postgres.
- *
- * Key Jedis 7.x API notes:
- *  - StreamEntry is in redis.clients.jedis.resps (moved from jedis root)
- *  - StreamEntryID stays in redis.clients.jedis
- *  - xreadGroup takes varargs Map.Entry<String, StreamEntryID>, not a Map
- */
 @Service
 public class StreamConsumerService {
 
     private static final Logger log = LoggerFactory.getLogger(StreamConsumerService.class);
 
-    private static final String STREAM_KEY   = "stream:scored-alerts";
+    private static final String STREAM_KEY     = "stream:scored-alerts";
     private static final String CONSUMER_GROUP = "spring-orchestrator";
     private static final String CONSUMER_NAME  = "orchestrator-1";
     private static final int    BATCH_SIZE     = 20;
+    private static final String ALERTS_TOPIC   = "/topic/alerts";
 
-    private final JedisPooled        jedis;
-    private final AlertRepository    alertRepository;
+    private final JedisPooled           jedis;
+    private final AlertRepository       alertRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Value("${app.alert-consumer.enabled:true}")
     private boolean enabled;
 
     private boolean groupInitialized = false;
 
-    public StreamConsumerService(JedisPooled jedis, AlertRepository alertRepository) {
-        this.jedis           = jedis;
-        this.alertRepository = alertRepository;
+    public StreamConsumerService(
+            JedisPooled jedis,
+            AlertRepository alertRepository,
+            SimpMessagingTemplate messagingTemplate
+    ) {
+        this.jedis             = jedis;
+        this.alertRepository   = alertRepository;
+        this.messagingTemplate = messagingTemplate;
     }
 
     private void ensureConsumerGroup() {
@@ -69,8 +70,7 @@ public class StreamConsumerService {
         ensureConsumerGroup();
 
         XReadGroupParams params = XReadGroupParams.xReadGroupParams().count(BATCH_SIZE);
-
-        Map<String, StreamEntryID> streams = new java.util.HashMap<>();
+        Map<String, StreamEntryID> streams = new HashMap<>();
         streams.put(STREAM_KEY, StreamEntryID.XREADGROUP_UNDELIVERED_ENTRY);
 
         List<Map.Entry<String, List<StreamEntry>>> response;
@@ -109,12 +109,15 @@ public class StreamConsumerService {
             Double sourceTimestamp = (fields.containsKey("source_timestamp") && !fields.get("source_timestamp").isEmpty())
                     ? Double.parseDouble(fields.get("source_timestamp")) : null;
 
-            alertRepository.save(new Alert(machineId, probability, cyclePosition, sourceTimestamp));
+            Alert alert = alertRepository.save(
+                    new Alert(machineId, probability, cyclePosition, sourceTimestamp)
+            );
+
+            messagingTemplate.convertAndSend(ALERTS_TOPIC, AlertEvent.from(alert));
+
             jedis.xack(STREAM_KEY, CONSUMER_GROUP, entry.getID());
 
         } catch (Exception e) {
-            // Deliberately NOT acking — malformed messages stay pending (visible in XPENDING)
-            // rather than being silently dropped.
             log.error("Failed to process entry {}: {}", entry.getID(), e.getMessage(), e);
         }
     }
